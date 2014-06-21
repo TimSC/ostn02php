@@ -16,12 +16,12 @@ Web interface and command line
 
 The script can be called from the command line and a web interface:
 
-http://timsc.dev.openstreetmap.org/dev/ostn02/ostn02php/ConvToOsbg36.php?lat=51.29831006&lon=1.07337394&h=44.621
-http://timsc.dev.openstreetmap.org/dev/ostn02/ostn02php/ConvToWgs84.php?e=614350&n=159950&h=0
+* http://timsc.dev.openstreetmap.org/dev/ostn02/ostn02php/ConvToOsbg36.php?lat=51.29831006&lon=1.07337394&h=44.621
+* http://timsc.dev.openstreetmap.org/dev/ostn02/ostn02php/ConvToWgs84.php?e=614350&n=159950&h=0
 
 or
 
-php ConvToOsbg36.php 51.29831006 1.07337394 44.621
-php ConvToWgs84.php 614350 159950 0
+* php ConvToOsbg36.php 51.29831006 1.07337394 44.621
+* php ConvToWgs84.php 614350 159950 0
 
 The result is XML formatted. You can check the accuracy on the OS website. http://gps.ordnancesurvey.co.uk/etrs89geo_natgrid.asp
