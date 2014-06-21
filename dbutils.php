@@ -47,7 +47,7 @@ function SqliteDropTableIfExists(&$dbh,$name)
 
 function TableToHtml($dbh,$table)
 {
-	$sql = "SELECT * FROM [".sqlite_escape_string($table)."];";
+	$sql = "SELECT * FROM [".$dbh->quote($table)."];";
 	$ret = $dbh->query($sql);
 	if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
 	foreach($ret as $row)
@@ -155,18 +155,18 @@ class GenericSqliteTable implements ArrayAccess
 		$this->InitialiseSchema();
 	}
 
-	function ValueToSql($value,$type)
+	function ValueToSql(&$dbh,$value,$type)
 	{
 		if(is_null($value)) return "null";
 		//echo $value." ".$type."\n";
 		if(strcasecmp($type,"STRING")==0) 
-			return "'".sqlite_escape_string($value)."'";
+			return $dbh->quote($value);
 		if(strcasecmp($type,"INTEGER")==0) 
 			return "'".((int)$value)."'";
 		if(strcasecmp($type,"REAL")==0) 
 			return "'".((float)$value)."'";
 		if(strcasecmp($type,"BLOB")==0) 
-			return "'".sqlite_escape_string($value)."'";
+			return $dbh->quote($value);
 		
 		throw new Exception('Cannot cast unknown SQL type '.$type);
 	}
@@ -188,13 +188,13 @@ class GenericSqliteTable implements ArrayAccess
 		}
 
 		//Construct SQL
-		$sql="UPDATE [".$this->tablename."] SET value='".sqlite_escape_string(serialize($data))."'";
+		$sql="UPDATE [".$this->tablename."] SET value=".$this->dbh->quote(serialize($data))."";
 
 		foreach($additionalKeys as $adKey => $adVal)
-			$sql.= ", ".$adKey."=".$this->ValueToSql($adVal,$this->keys[$adKey]);
+			$sql.= ", ".$adKey."=".$this->ValueToSql($this->dbh,$adVal,$this->keys[$adKey]);
 
 		$sql.=" WHERE ".$key."=";
-		$sql.=$this->ValueToSql($keyVal,$this->keys[$key]);
+		$sql.=$this->ValueToSql($this->dbh,$keyVal,$this->keys[$key]);
 		$sql.=";";
 
 		//Execute SQL
@@ -237,10 +237,10 @@ class GenericSqliteTable implements ArrayAccess
 		foreach($additionalKeys as $adKey => $adVal)
 		{
 			if($count != 0) $sql.= ", ";
-			$sql .= $this->ValueToSql($adVal,$this->keys[$adKey]);
+			$sql .= $this->ValueToSql($this->dbh, $adVal,$this->keys[$adKey]);
 			$count += 1;
 		}
-		$sql.=", '".sqlite_escape_string(serialize($data))."'";
+		$sql.=", ".$this->dbh->quote(serialize($data));
 		$sql.=");";
 		//print_r(sqlite_udf_encode_binary(serialize($data)));
 
@@ -276,7 +276,7 @@ class GenericSqliteTable implements ArrayAccess
 	
 	public function Get($key, $keyVal)
 	{
-		$query = "SELECT * FROM [".$this->tablename."] WHERE ".$key."=".$this->ValueToSql($keyVal,$this->keys[$key]).";";
+		$query = "SELECT * FROM [".$this->tablename."] WHERE ".$key."=".$this->ValueToSql($this->dbh, $keyVal,$this->keys[$key]).";";
 		//echo $query."\n";
 
 		$ret = $this->dbh->query($query);
@@ -284,7 +284,7 @@ class GenericSqliteTable implements ArrayAccess
 		foreach($ret as $row)
 		{
 			//print_r($row['value']);echo"\n";
-			$record = unserialize(sqlite_udf_decode_binary($row['value']));
+			$record = unserialize(utf8_decode($row['value']));
 			foreach($this->keys as $exKey => $exType)
 			{
 				if(isset($row[$exKey]))
@@ -300,7 +300,7 @@ class GenericSqliteTable implements ArrayAccess
 
 	public function IsRecordSet($key, $keyVal)
 	{
-		$query = "SELECT COUNT(value) FROM [".$this->tablename."] WHERE ".$key."=".$this->ValueToSql($keyVal,$this->keys[$key]).";";
+		$query = "SELECT COUNT(value) FROM [".$this->tablename."] WHERE ".$key."=".$this->ValueToSql($this->dbh, $keyVal,$this->keys[$key]).";";
 		//echo $query."\n";
 		$ret = $this->dbh->query($query);
 		if($ret===false) {$err= $this->dbh->errorInfo();throw new Exception($query.",".$err[2]);}
@@ -313,7 +313,7 @@ class GenericSqliteTable implements ArrayAccess
 		if($this->useTransactions)
 			$this->BeginTransactionIfNotAlready();
 
-		$sql = "DELETE FROM [".$this->tablename."] WHERE ".$key."=".$this->ValueToSql($keyVal,$this->keys[$key]).";";
+		$sql = "DELETE FROM [".$this->tablename."] WHERE ".$key."=".$this->ValueToSql($this->dbh, $keyVal,$this->keys[$key]).";";
 
 		//Execute SQL
 		//echo $sql."\n";
@@ -390,10 +390,10 @@ class TableSpecSqlite
 		array_push($this->cols,array($name,$type,$primaryKey,$unique));
 	}
 
-	function GetColumnDef($col)
+	function GetColumnDef($dbh, $col)
 	{
 		list($name,$type,$primaryKey,$unique) = $col;
-		$sql = sqlite_escape_string($name)." ".sqlite_escape_string($type);
+		$sql = $dbh->quote($name)." ".$dbh->quote($type);
 		if ($primaryKey) $sql .= " PRIMARY KEY";
 		if ($unique) $sql .= " UNIQUE";
 		return $sql;
@@ -403,12 +403,12 @@ class TableSpecSqlite
 	{
 		if($ifNotExists and $this->TableExists($dbh)) return 0;
 
-		$sql = 'CREATE TABLE '.sqlite_escape_string($this->name).' (';
+		$sql = 'CREATE TABLE '.$dbh->quote($this->name).' (';
 		$count = 0;
 		foreach($this->cols as $col)
 		{
 			if($count > 0) $sql .= ", ";
-			$sql.= $this->GetColumnDef($col);
+			$sql.= $this->GetColumnDef($dbh, $col);
 			$count ++;
 		}
 
@@ -423,7 +423,7 @@ class TableSpecSqlite
 		if(is_null($tableName)) $tableName = $this->name;
 		if($ifExists and !$this->TableExists($dbh,$tableName)) return 0;
 
-		$sql = 'DROP TABLE '.sqlite_escape_string($tableName).';';
+		$sql = 'DROP TABLE '.$dbh->quote($tableName).';';
 		$ret = $dbh->exec($sql);
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
 	}
@@ -431,8 +431,8 @@ class TableSpecSqlite
 	function TableExists(&$dbh, $tablename=null)
 	{
 		//Check if table exists
-		if(is_null($tablename)) $tablename = sqlite_escape_string($this->name);
-		$sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='".$tablename."';";
+		if(is_null($tablename)) $tablename = $dbh->quote($this->name);
+		$sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=".$tablename.";";
 		$ret = $dbh->query($sql);
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
 		$tableExists = 0;
@@ -443,7 +443,7 @@ class TableSpecSqlite
 
 	function SchemaMatches(&$dbh)
 	{
-		$sql = "PRAGMA table_info(".sqlite_escape_string($this->name).");";
+		$sql = "PRAGMA table_info(".$dbh->quote($this->name).");";
 		$ret = $dbh->query($sql);
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
 		$count =0;
@@ -481,7 +481,7 @@ class TableSpecSqlite
 
 		//Existing columns must match
 		//Return value of -1 means ALTER cannot be used to migrate
-		$sql = "PRAGMA table_info(".sqlite_escape_string($this->name).");";
+		$sql = "PRAGMA table_info(".$dbh->quote($this->name).");";
 		$ret = $dbh->query($sql);
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
 		$count =0;
@@ -501,7 +501,7 @@ class TableSpecSqlite
 			$col = $this->cols[$i];
 			list($name,$type,$primaryKey,$unique) = $col;
 			if($primaryKey or $unique) return -1; //Cannot add a new indexed column
-			$sql = "ALTER TABLE ".sqlite_escape_string($this->name)." ADD COLUMN ".$this->GetColumnDef($col).";";
+			$sql = "ALTER TABLE ".$dbh->quote($this->name)." ADD COLUMN ".$this->GetColumnDef($col).";";
 			//echo $sql;
 			$ret = $dbh->exec($sql);
 			if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
@@ -516,7 +516,7 @@ class TableSpecSqlite
 	function CountExistingRows(&$dbh)
 	{
 		//Get number of rows
-		$query = "SELECT COUNT(*) FROM [".sqlite_escape_string($this->name)."];";
+		$query = "SELECT COUNT(*) FROM [".$dbh->quote($this->name)."];";
 		$ret = $dbh->query($query);
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($query.",".$err[2]);}
 		$numRows = null;
@@ -544,7 +544,7 @@ class TableSpecSqlite
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
 
 		//Rename table
-		$sql = "ALTER TABLE [".sqlite_escape_string($this->name)."] RENAME TO migrate_table;";
+		$sql = "ALTER TABLE [".$dbh->quote($this->name)."] RENAME TO migrate_table;";
 		$ret = $dbh->exec($sql);
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($sql.",".$err[2]);}
 
@@ -557,7 +557,7 @@ class TableSpecSqlite
 		if($ret===false) {$err= $dbh->errorInfo();throw new Exception($query.",".$err[2]);}
 		foreach($ret as $row)
 		{
-			$sql = "INSERT INTO [".sqlite_escape_string($this->name)."] (";
+			$sql = "INSERT INTO [".$dbh->quote($this->name)."] (";
 			$valueStr = "(";
 			$count = 0;
 			foreach($this->cols as $col)
@@ -569,11 +569,11 @@ class TableSpecSqlite
 					$sql .= $name;
 					if($type=="REAL" or $type=="INTEGER")
 					{
-						if($type=="REAL") $valueStr .= sqlite_escape_string((float)$row[$name]);
-						if($type=="INTEGER") $valueStr .= sqlite_escape_string((int)$row[$name]);
+						if($type=="REAL") $valueStr .= $dbh->quote((float)$row[$name]);
+						if($type=="INTEGER") $valueStr .= $dbh->quote((int)$row[$name]);
 					}
 					else
-						$valueStr .= "'".sqlite_escape_string($row[$name])."'";
+						$valueStr .= $dbh->quote($row[$name]);
 					$count ++;
 				}
 			}

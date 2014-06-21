@@ -1,4 +1,4 @@
-<?
+<?php
 require_once('dbutils.php');
 
 #OSTN02 for PHP
