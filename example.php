@@ -14,8 +14,8 @@ require_once('OSTN02.php');
 print "OSGB36_to_ETRS89\n";
 print "================\n";
 print "Take OS map reference: TR143599\n";
-$xin = 614350;
-$yin = 159950;
+$xin = 614300;
+$yin = 159900;
 print "OS X (Eastings) ".$xin."\n";
 print "OS Y (Northings) ".$yin."\n";
 
@@ -29,14 +29,14 @@ list($gla, $glo) = grid_to_ll($x, $y);
 print "The grid position converts to ETRS89 lat,lon (using grid_to_ll) of:\n";
 print $gla.",".$glo."\n";
 
-print "Actual answer: 51.29831006, 1.07337394, 44.621\n";
+print "Actual answer: 51.297880, 1.072628\n";
 print "ETRS89 is within a metre of WGS84 (as used by GPS receivers), at time of writing (2011).\n";
 
 print "\nETRS89_to_OSGB36\n";
 print "=================\n";
 
-$gla = 51.29831006;
-$glo = 1.07337394;
+$gla = 51.297880;
+$glo = 1.072628;
 $h = 44.621;
 
 print "To ETRS89 grid (using ll_to_grid):\n";
@@ -49,7 +49,7 @@ print "To OS Eastings/Northings (using ETRS89_to_OSGB36):\n";
 $grid = ETRS89_to_OSGB36($x2,$y2,$h); 
 echo $grid[0].",".$grid[1].",".$grid[2]."\n";
 
-print "Actual Answer: 614350, 159950, 0\n";
+print "Actual Answer: 614300, 159900, 0\n";
 
 print "\nExceptions\n";
 print "==========\n";
