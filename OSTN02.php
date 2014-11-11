@@ -21,9 +21,9 @@ define('MIN_Z_SHIFT',43.982);
 if(CREATE_SQLITE_OSTN02_ON_FIRST_RUN and !file_exists(dirname ( __FILE__ )."/ostn02.db"))
 {
 	require_once('GenerateTransformFunc.php');
-	echo "Generating OSTN02 database on first run...\n";
+	//echo "Generating OSTN02 database on first run...\n";
 	GenerateTransformFunc();
-	echo "done\n";
+	//echo "done\n";
 }
 
 if(USE_SQLITE_OSTN02_IF_AVAIL and file_exists(dirname ( __FILE__ )."/ostn02.db"))
